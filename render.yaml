@@ -1,0 +1,61 @@
+# render.yaml
+# Configuración de despliegue para Render.com
+
+services:
+  - type: web
+    name: alexia
+    env: docker  # Usar Docker para compatibilidad con Java
+    region: oregon  # Cambia a la región más cercana (oregon, frankfurt, singapore, etc.)
+    plan: free  # Opciones: free, starter, standard, pro
+    
+    # Docker detectará automáticamente el Dockerfile
+    # No se necesitan buildCommand ni startCommand
+    
+    # Configuración de salud y auto-despliegue
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    
+    # Variables de entorno
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      
+      - key: PORT
+        value: 8080
+      
+      # Base de datos (componentes individuales - DatabaseConfig.java los construye)
+      - key: DB_HOST
+        sync: false  # Configurar manualmente en el dashboard
+      
+      - key: DB_PORT
+        sync: false  # Configurar manualmente en el dashboard
+      
+      - key: DB_NAME
+        sync: false  # Configurar manualmente en el dashboard
+      
+      - key: DB_USER
+        sync: false  # Configurar manualmente en el dashboard
+      
+      - key: DB_PASSWORD
+        sync: false  # Configurar manualmente en el dashboard
+      
+      # Telegram Bot
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false  # Configurar manualmente en el dashboard
+      
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false  # Configurar manualmente en el dashboard
+      
+      # Grok AI
+      - key: GROK_API_KEY
+        sync: false  # Configurar manualmente en el dashboard
+      
+      - key: GROK_API_URL
+        value: https://api.groq.com/openai/v1/chat/completions
+      
+      - key: GROK_MODEL
+        value: llama-3.1-8b-instant
+      
+      # Java Options para optimizar memoria
+      - key: JAVA_OPTS
+        value: -Xmx512m -Xms256m
