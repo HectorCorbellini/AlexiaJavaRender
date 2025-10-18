@@ -12,20 +12,20 @@ Ver el plan completo en: [PLAN_INCREMENTAL.md](PLAN_INCREMENTAL.md)
 
 ## 📦 Código Fuente
 
-**Repositorio en GitHub**: [https://github.com/HectorCorbellini/AlexiaJava](https://github.com/HectorCorbellini/AlexiaJava)
+**Repositorio en GitHub**: [https://github.com/HectorCorbellini/AlexiaJavaRender](https://github.com/HectorCorbellini/AlexiaJavaRender)
 
 **Rama actual (Paso 6)**: `paso6-grok-ai-final`
 
 ```bash
 # Clonar el proyecto (rama principal)
-git clone https://github.com/HectorCorbellini/AlexiaJava.git
-cd AlexiaJava
+git clone https://github.com/HectorCorbellini/AlexiaJavaRender.git
+cd AlexiaJavaRender
 
 # O clonar la rama del Paso 6 directamente
-git clone -b paso6-grok-ai-final https://github.com/HectorCorbellini/AlexiaJava.git
-cd AlexiaJava
+git clone -b main https://github.com/HectorCorbellini/AlexiaJavaRender.git
+cd AlexiaJavaRender
 
-# Configurar variables de entorno
+# Configurar variables de entorno para desarrollo local
 cp .env.example .env
 # Editar .env con tus credenciales (Supabase, Telegram, Groq)
 
@@ -48,11 +48,11 @@ mvn spring-boot:run
 cd /home/uko/COLOMBIA/JAVA/2do-Intento-JAVA/javaDos-
 ```
 
-2. **Variables de entorno ya configuradas**
+2. **Variables de entorno configuradas automáticamente**
 ```bash
-# El archivo .env ya está configurado con tus credenciales
-# Token de Telegram: ✅ Configurado y verificado
-# Credenciales de Supabase: ✅ Configuradas
+# Para desarrollo local: El archivo .env ya está configurado con tus credenciales
+# Para producción en Render: Las variables se configuran automáticamente usando:
+./scripts/sync_env.sh
 ```
 
 3. **Crear tablas en Supabase**
@@ -92,9 +92,72 @@ mvn spring-boot:run
 http://localhost:8080
 ```
 
-7. **Probar funcionalidades**
-- ✅ **Conexión a Supabase**: Botón "Probar Conexión" en dashboard
-- ✅ **Bot de Telegram**: Enviar mensaje a `@ukoquique_bot`
+## 🚀 Despliegue en Render (Automatizado)
+
+Este proyecto utiliza un enfoque automatizado y seguro para el despliegue en Render:
+
+### ✅ Características del Despliegue
+
+- **Docker**: Aplicación empaquetada automáticamente con multi-stage build
+- **Variables de entorno**: Configuración automática usando Render CLI
+- **Base de datos**: Conexión automática usando `DatabaseConfig.java`
+- **Telegram**: Eliminación automática de webhooks integrada
+
+### 📋 Pasos de Despliegue
+
+1. **Preparar entorno de Render**:
+   ```bash
+   # Instalar Render CLI (si no lo tienes)
+   curl -fsSL https://raw.githubusercontent.com/render-oss/cli/refs/heads/main/bin/install.sh | sh
+
+   # Configurar API key de Render
+   export RENDER_API_KEY="rnd_tu_api_key_aqui"
+   ```
+
+2. **Sincronizar variables de entorno**:
+   ```bash
+   # Ejecutar script de sincronización automática
+   ./scripts/sync_env.sh
+   ```
+
+3. **Crear servicio en Render**:
+   - Ve a [Render Dashboard](https://dashboard.render.com/)
+   - **New +** → **Web Service**
+   - Conecta repositorio: `HectorCorbellini/AlexiaJavaRender`
+   - Render detectará automáticamente `Dockerfile` y `render.yaml`
+
+4. **Configurar variables adicionales en Render** (opcional):
+   ```bash
+   SPRING_PROFILES_ACTIVE=prod
+   DB_HOST=aws-0-us-west-1.pooler.supabase.com
+   DB_PORT=6543
+   DB_NAME=postgres
+   DB_USER=postgres.tu_proyecto
+   DB_PASSWORD=tu_password
+   TELEGRAM_BOT_TOKEN=tu_token
+   TELEGRAM_BOT_USERNAME=tu_bot_username
+   GROK_API_KEY=tu_api_key
+   ```
+
+5. **Desplegar**:
+   - Click en **Create Web Service**
+   - Esperar despliegue (5-10 minutos)
+   - Acceder a la URL proporcionada por Render
+
+### 🔧 Comandos de Despliegue
+
+```bash
+# Sincronizar variables de entorno con Render
+./scripts/sync_env.sh
+
+# Ver estado del servicio en Render
+render services
+
+# Ver logs del servicio
+render logs --service alexia-java-render
+```
+
+Ver [render/README.md](render/README.md) para documentación completa de despliegue.
 
 ## 📦 Tecnologías
 
@@ -342,180 +405,94 @@ El proyecto incluye configuración específica para cada entorno:
 ## 🐛 Troubleshooting
 
 ### Error de conexión a base de datos
-Verificar que las credenciales en `.env` sean correctas.
-
-### Puerto 8080 en uso
-Cambiar el puerto en `application.properties`:
-```properties
-server.port=8081
-```
+- **Verificar credenciales**: Asegúrate de que las variables de entorno estén configuradas correctamente en Render
+- **Sincronizar variables**: Ejecuta `./scripts/sync_env.sh` para actualizar las variables en Render
+- **Verificar restricciones de red**: En Supabase, ve a **Settings → Database → Network Restrictions** y asegúrate de que **"Allow all access"** esté activado
 
 ### Error 401 en bot de Telegram
-- El token puede haber expirado
+- El token puede haber expirado o ser inválido
 - Usa @BotFather para obtener un token nuevo
-- Actualiza `TELEGRAM_BOT_TOKEN` en `.env`
+- Actualiza el token usando `./scripts/sync_env.sh`
 
 ### Error 409: Conflict - Bot de Telegram
+Este error ocurre cuando hay múltiples instancias del bot intentando conectarse simultáneamente.
 
-**Síntoma:**
-```
-Error executing GetUpdates query: [409] Conflict: terminated by other getUpdates request
-```
-
-**Causa:**
-Este error ocurre cuando hay **múltiples instancias del bot** intentando conectarse simultáneamente, o cuando quedan **procesos zombie** en memoria después de cerrar la aplicación abruptamente.
-
-**Causas específicas:**
-1. 🧟 **Procesos zombie** - Procesos Java que no se cerraron correctamente
-2. 📡 **Sesión de Telegram activa** - La API mantiene la sesión por un tiempo
-3. 💾 **Caché del sistema** - Sockets TCP/IP en estado `TIME_WAIT`
-4. 🔄 **Múltiples instancias** - Ejecutaste el bot en otra terminal/computadora
-
-**Solución 1: Usar el script de detención (Recomendado)**
+**Solución automatizada**:
 ```bash
-# Detener correctamente la aplicación
-./scripts/stop_linux.sh
+# Detener aplicación local si está corriendo
+pkill -f "spring-boot:run"
+
+# Sincronizar variables (esto reinicia el servicio en Render)
+./scripts/sync_env.sh
 
 # Esperar 30 segundos para que Telegram libere la sesión
 sleep 30
-
-# Volver a ejecutar
-./scripts/run_linux.sh
 ```
 
-**Solución 2: Esperar 5-10 minutos**
+**Prevención**:
+- Siempre usa `./scripts/sync_env.sh` para actualizar la configuración
+- Evita cerrar la aplicación abruptamente
+
+## 🔐 Seguridad y Variables de Entorno
+
+### ✅ Estrategia de Seguridad Actualizada
+
+Este proyecto utiliza un enfoque moderno y seguro para manejar variables de entorno:
+
+#### **Producción (Render)**:
+- **Variables individuales**: Cada secreto se configura como variable de entorno independiente en Render
+- **Automatización**: El script `./scripts/sync_env.sh` sincroniza automáticamente las variables desde tu `.env.production` local
+- **Java automático**: `DatabaseConfig.java` construye la URL JDBC usando las variables del sistema
+- **Sin secretos en código**: Ningún secreto se guarda en el repositorio o imagen Docker
+
+#### **Desarrollo Local**:
+- **Archivo .env**: Variables locales para desarrollo (excluido de Git)
+- **Carga automática**: `AlexiaApplication.java` carga automáticamente las variables locales
+- **Sin conflictos**: Las variables de producción no afectan el desarrollo local
+
+### 📝 Configuración Automatizada
+
+#### **Paso 1: Configurar API Key de Render**
 ```bash
-# Detener la aplicación
-./scripts/stop_linux.sh
-
-# Esperar 5-10 minutos (Telegram liberará la sesión automáticamente)
-
-# Volver a ejecutar
-./scripts/run_linux.sh
+# Obtener API key desde: https://dashboard.render.com/account/api-keys
+export RENDER_API_KEY="rnd_tu_api_key_aqui"
 ```
 
-**Solución 3: Reiniciar el sistema (Última opción - Más efectiva)**
+#### **Paso 2: Sincronizar Variables**
 ```bash
-# Si las soluciones anteriores no funcionan, reinicia el sistema
-sudo reboot
+# Ejecutar sincronización automática
+./scripts/sync_env.sh
 
-# Después del reinicio, ejecuta normalmente
-./scripts/run_linux.sh
+# Esto lee tu .env.production local y configura todas las variables en Render
 ```
 
-**💡 Nota importante:** El reinicio del sistema es la solución más efectiva porque:
-- Elimina todos los procesos zombie completamente
-- Limpia toda la memoria y caché del sistema
-- Reinicia el stack de red completo
-- Libera la sesión de Telegram inmediatamente
-- **Garantiza que el bot funcionará correctamente**
+#### **Paso 3: Desplegar**
+- Render recibe las variables configuradas automáticamente
+- `DatabaseConfig.java` construye la conexión usando las variables del sistema
+- La aplicación se conecta sin necesidad de archivos .env
 
-**Prevención:**
-- ✅ **Siempre** usa `./scripts/stop_linux.sh` para detener la aplicación
-- ❌ **Evita** cerrar la aplicación con `Ctrl+C` o cerrando la terminal
-- ⏱️ **Espera** 30 segundos entre detener y volver a ejecutar
-- 🔍 **Verifica** que no haya otras instancias ejecutándose:
-  ```bash
-  ps aux | grep -E "spring-boot|AlexiaApplication"
-  ```
+### 🔒 Beneficios de Seguridad
 
-**Explicación técnica:**
-El error 409 es común en desarrollo de bots de Telegram porque:
-- La API de Telegram solo permite **una conexión activa** por bot
-- Los procesos Java pueden quedar como **zombies** en memoria
-- Las conexiones TCP/IP pueden quedar en estado **TIME_WAIT**
-- El reinicio del sistema limpia completamente la memoria y conexiones
+- ✅ **Sin secretos en GitHub**: `.env` archivos están excluidos del repositorio
+- ✅ **Sin secretos en Docker**: Variables se inyectan en tiempo de ejecución
+- ✅ **Auditoría completa**: Puedes ver todas las variables en el dashboard de Render
+- ✅ **Rotación fácil**: Cambiar secretos no requiere rebuild del contenedor
+- ✅ **Separación clara**: Variables de desarrollo vs producción completamente separadas
 
-### El bot no responde
+### 📋 Verificación de Seguridad
+
 ```bash
-# Verificar que la aplicación esté corriendo
-curl http://localhost:8080
+# Verificar que no hay archivos .env en Git
+git status  # No debe mostrar archivos .env
 
-# Verificar logs del bot
-tail -f /proc/$(pgrep -f "spring-boot:run")/fd/1 | grep -i "telegram\|bot"
+# Ver variables en Render (después de sincronizar)
+render env list --service tu-servicio
+
+# Ver logs para confirmar carga correcta
+render logs --service tu-servicio | grep -i "variables\|entorno"
 ```
 
-## 🔐 Manejo del Archivo .env
-
-### ⚠️ IMPORTANTE: Seguridad del .env
-
-El archivo `.env` contiene **credenciales sensibles** (API keys, passwords) que **NO deben subirse a GitHub**.
-
-### 📝 Workflow Recomendado
-
-#### **Durante el Desarrollo Local**:
-```bash
-# 1. Comentarizar .env en .gitignore para poder modificarlo
-# Editar .gitignore y cambiar:
-.env
-# por:
-#.env
-
-# 2. Ahora puedes editar .env con tus credenciales reales
-nano .env
-
-# 3. Ejecutar la aplicación normalmente
-mvn spring-boot:run
-```
-
-#### **Antes de Subir a GitHub**:
-```bash
-# 1. Descomentarizar .env en .gitignore
-# Editar .gitignore y cambiar:
-#.env
-# por:
-.env
-
-# 2. Verificar que .env no esté en staging
-git status
-# No debe aparecer .env en la lista
-
-# 3. Hacer commit y push
-git add .
-git commit -m "Tu mensaje"
-git push origin main
-```
-
-### 🛡️ Protección Automática de GitHub
-
-GitHub tiene **push protection** que bloquea automáticamente commits con:
-- API keys (Groq, OpenAI, etc.)
-- Tokens de acceso
-- Passwords
-- Claves privadas
-
-Si ves este error:
-```
-remote: error: GH013: Repository rule violations found
-remote: - Push cannot contain secrets
-```
-
-**Solución**:
-```bash
-# Remover .env del commit
-git rm --cached .env
-
-# Asegurarse que .env esté en .gitignore
-echo ".env" >> .gitignore
-
-# Hacer nuevo commit
-git add .gitignore
-git commit --amend -m "Tu mensaje (sin .env)"
-git push origin main
-```
-
-### 📋 Archivo .env.example
-
-El repositorio incluye `.env.example` con valores de ejemplo:
-```bash
-# Copiar para crear tu .env local
-cp .env.example .env
-
-# Editar con tus credenciales reales
-nano .env
-```
-
-**Nunca** pongas credenciales reales en `.env.example` - este archivo SÍ se sube a GitHub.
+Ver [render/ENV_STRATEGY_ANALYSIS.md](render/ENV_STRATEGY_ANALYSIS.md) para análisis detallado de estrategias de entorno.
 
 ## 🧪 Tests Unitarios
 
