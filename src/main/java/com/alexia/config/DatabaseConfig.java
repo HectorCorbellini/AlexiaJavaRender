@@ -26,44 +26,23 @@ public class DatabaseConfig {
     @Bean
     @Profile("prod")
     public DataSource productionDataSource() {
-        String dbHost = System.getenv("DB_HOST");
-        String dbPort = System.getenv("DB_PORT");
-        String dbName = System.getenv("DB_NAME");
-        String dbUser = System.getenv("DB_USER");
-        String dbPassword = System.getenv("DB_PASSWORD");
+        String jdbcUrl = System.getenv("DATABASE_URL");
         
-        // Debug: Print all environment variables (without password)
-        System.out.println("=== DATABASE CONFIGURATION DEBUG ===");
-        System.out.println("DB_HOST: " + (dbHost != null ? dbHost : "NOT SET"));
-        System.out.println("DB_PORT: " + (dbPort != null ? dbPort : "NOT SET"));
-        System.out.println("DB_NAME: " + (dbName != null ? dbName : "NOT SET"));
-        System.out.println("DB_USER: " + (dbUser != null ? dbUser : "NOT SET"));
-        System.out.println("DB_PASSWORD: " + (dbPassword != null ? "SET (length=" + dbPassword.length() + ")" : "NOT SET"));
-        System.out.println("SPRING_PROFILES_ACTIVE: " + System.getenv("SPRING_PROFILES_ACTIVE"));
+        System.out.println("=== PRODUCTION DATABASE CONFIG ===");
         
-        // Validate required variables
-        if (dbHost == null || dbPort == null || dbName == null || dbUser == null || dbPassword == null) {
-            String error = "Missing required database environment variables. Please check Render dashboard.";
+        if (jdbcUrl == null || jdbcUrl.isEmpty()) {
+            String error = "DATABASE_URL environment variable is not set. Please check Render dashboard.";
             System.err.println("❌ " + error);
             throw new IllegalStateException(error);
         }
-        
-        // Construir URL JDBC desde componentes individuales
-        String jdbcUrl = String.format(
-            "jdbc:postgresql://%s:%s/%s?sslmode=require",
-            dbHost,
-            dbPort,
-            dbName
-        );
-        
-        System.out.println("✓ URL JDBC construida para producción: " + jdbcUrl);
-        System.out.println("✓ Usuario: " + dbUser);
-        System.out.println("====================================");
+
+        // The DATABASE_URL from Supabase already contains the user and password.
+        // HikariCP can parse it directly.
+        System.out.println("✓ Using DATABASE_URL from environment.");
+        System.out.println("==================================");
         
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(jdbcUrl);
-        config.setUsername(dbUser);
-        config.setPassword(dbPassword);
         config.setDriverClassName("org.postgresql.Driver");
         
         // Configuración del pool - más conservadora para Render
@@ -74,7 +53,7 @@ public class DatabaseConfig {
         config.setMaxLifetime(1200000);
         config.setLeakDetectionThreshold(60000);
         
-        // Deshabilitar caché de prepared statements
+        // Deshabilitar caché de prepared statements para compatibilidad con Supabase/PgBouncer
         config.addDataSourceProperty("cachePrepStmts", "false");
         config.addDataSourceProperty("prepStmtCacheSize", "0");
         config.addDataSourceProperty("prepStmtCacheSqlLimit", "0");
